@@ -49,6 +49,26 @@
 ;; change `org-directory'. It must be set before org loads!
 (setq org-directory "~/org/")
 
+;; Every .org file in `org-directory' (todo.org, birthdays.org, ...) feeds the
+;; agenda, so new files show up without being registered here.
+(setq org-agenda-files (list org-directory))
+
+(defun my/org-capture-birthday-template ()
+  "Ask for a name and date, return a yearly-repeating birthday entry."
+  (let* ((name (read-string "Name: "))
+         (date (org-read-date nil t nil (format "%s's birthday: " name))))
+    (format "* %s's Birthday\n<%s +1y>\n%%?"
+            name (format-time-string "%Y-%m-%d %a" date))))
+
+(after! org
+  ;; SPC X b: add a birthday to birthdays.org
+  (add-to-list 'org-capture-templates
+               '("b" "Birthday" entry
+                 (file "birthdays.org")
+                 (function my/org-capture-birthday-template)
+                 :empty-lines-before 1)
+               t))
+
 
 ;; Whenever you reconfigure a package, make sure to wrap your config in an
 ;; `with-eval-after-load' block, otherwise Doom's defaults may override your
