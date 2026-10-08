@@ -148,7 +148,9 @@
   ;; HTML, Org (full entries) and plain text.
   (setq org-agenda-custom-commands
         `(("d" "Daily review"
-           ((agenda "" ((org-agenda-span 'day)))
+           ((agenda "" ((org-agenda-span 'day)
+                        ;; Doom starts agendas 3 days back; show today.
+                        (org-agenda-start-day nil)))
             (todo "NEXT" ((org-agenda-overriding-header "Next")))
             (todo "WAIT" ((org-agenda-overriding-header "Waiting on")))
             (tags-todo "inbox" ((org-agenda-overriding-header "Inbox to refile"))))
