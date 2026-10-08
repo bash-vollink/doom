@@ -144,12 +144,20 @@
 
 (after! org-agenda
   ;; SPC o A d: one-screen daily review.
+  ;; SPC o A e (org-store-agenda-views) also writes it to ~/org/exports/.
   (setq org-agenda-custom-commands
-        '(("d" "Daily review"
+        `(("d" "Daily review"
            ((agenda "" ((org-agenda-span 'day)))
             (todo "NEXT" ((org-agenda-overriding-header "Next")))
             (todo "WAIT" ((org-agenda-overriding-header "Waiting on")))
-            (tags-todo "inbox" ((org-agenda-overriding-header "Inbox to refile"))))))))
+            (tags-todo "inbox" ((org-agenda-overriding-header "Inbox to refile"))))
+           nil
+           (,(expand-file-name "exports/daily-review.html" org-directory)))))
+
+  ;; Create ~/org/exports on first export instead of failing on a missing dir.
+  (defadvice! my/org-make-exports-dir-a (&rest _)
+    :before #'org-store-agenda-views
+    (make-directory (expand-file-name "exports" org-directory) t)))
 
 (after! org
   ;; Priorities by urgency:
