@@ -142,6 +142,28 @@
   ;; habit that isn't due again until tomorrow still appears in the week view.
   (setq org-habit-show-habits-only-for-today nil))
 
+(after! org-agenda
+  ;; SPC o A d: one-screen daily review.
+  (setq org-agenda-custom-commands
+        '(("d" "Daily review"
+           ((agenda "" ((org-agenda-span 'day)))
+            (todo "NEXT" ((org-agenda-overriding-header "Next")))
+            (todo "WAIT" ((org-agenda-overriding-header "Waiting on")))
+            (tags-todo "inbox" ((org-agenda-overriding-header "Inbox to refile"))))))))
+
+(after! org
+  ;; Priorities by urgency:
+  ;;   A = due this week or blocking someone
+  ;;   B = normal (the default; no cookie needed)
+  ;;   C = someday / nice to have
+  (setq org-priority-highest ?A
+        org-priority-lowest ?C
+        org-priority-default ?B)
+
+  ;; SPC m q: one-key context tags, alongside the tags already in the file.
+  (setq org-tag-alist
+        '(("@computer" . ?c) ("@home" . ?h) ("@errand" . ?e) ("@phone" . ?p))))
+
 (after! org
   ;; SPC m A moves a finished subtree to archive/<file>_archive, filed under a
   ;; year/month/day tree, instead of keeping "Completed Tasks" sections.
