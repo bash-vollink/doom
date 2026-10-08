@@ -88,11 +88,15 @@
 (setq org-agenda-files (list org-directory))
 
 (defun my/org-capture-birthday-template ()
-  "Ask for a name and date, return a yearly-repeating birthday entry."
+  "Ask for a name and date, return a birthday entry that shows the age in the agenda."
   (let* ((name (read-string "Name: "))
-         (date (org-read-date nil t nil (format "%s's birthday: " name))))
-    (format "* %s's Birthday\n<%s +1y>\n%%?"
-            name (format-time-string "%Y-%m-%d %a" date))))
+         (date (decode-time
+                (org-read-date nil t nil (format "%s's birthday: " name)))))
+    ;; `%\\%(' stops capture from running the sexp; it's saved as `%%('.
+    (format "* %s's Birthday\n%%\\%%(org-anniversary %d %d %d) %s's %%d%%s birthday\n%%?"
+            name
+            (decoded-time-year date) (decoded-time-month date) (decoded-time-day date)
+            name)))
 
 (after! org
   ;; SPC X <key>. Replaces Doom's defaults so captured items look like the
