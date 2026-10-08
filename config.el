@@ -134,6 +134,11 @@
   (setq org-refile-targets
         `((,(expand-file-name "todo.org" org-directory) :maxlevel . 2))))
 
+;; Entries with a :STYLE: habit property (e.g. feeding the cat) show a
+;; consistency graph in the agenda instead of a plain scheduled line.
+(after! org-agenda
+  (require 'org-habit))
+
 (after! org
   ;; SPC m A moves a finished subtree to archive/<file>_archive, filed under a
   ;; year/month/day tree, instead of keeping "Completed Tasks" sections.
