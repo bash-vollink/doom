@@ -45,39 +45,58 @@
 ;; numbers are disabled. For relative line numbers, set this to `relative'.
 (setq display-line-numbers-type 'relative)
 
-;; Reopen the GUI frame where it was last closed, at the same size (or
-;; maximized/fullscreen if it was). Saved on quit to Doom's cache dir.
+;; Reopen GUI frames where the last one was closed, at the same size (or
+;; maximized/fullscreen if it was). Works for a normal `emacs' launch and for
+;; frames opened with `emacsclient -c' on the daemon. Saved to Doom's cache dir
+;; whenever a frame closes and when Emacs quits.
 (defvar my/frame-geometry-file (concat doom-cache-dir "frame-geometry.el"))
 
-(defun my/save-frame-geometry ()
-  "Write the selected frame's position, size and fullscreen state."
-  (when (display-graphic-p)
-    (let ((frame (selected-frame)))
-      (with-temp-file my/frame-geometry-file
-        (prin1 (list :position (frame-position frame)
-                     :width (frame-text-width frame)
-                     :height (frame-text-height frame)
-                     :fullscreen (frame-parameter frame 'fullscreen))
-               (current-buffer))))))
+(defun my/frame-geometry-frame-p (frame)
+  "Non-nil if FRAME is a GUI frame whose geometry should be saved/restored.
+Skips transient frames such as Doom's org-capture popup."
+  (and (frame-live-p frame)
+       (display-graphic-p frame)
+       (not (frame-parameter frame 'transient))))
 
-(defun my/restore-frame-geometry ()
-  "Apply the geometry saved by `my/save-frame-geometry', if any."
-  (when (and (display-graphic-p) (file-readable-p my/frame-geometry-file))
-    (let ((geometry (with-temp-buffer
-                      (insert-file-contents my/frame-geometry-file)
-                      (read (current-buffer))))
-          (frame (selected-frame)))
-      (set-frame-size frame (plist-get geometry :width)
-                      (plist-get geometry :height) t)
-      (set-frame-position frame
-                          (car (plist-get geometry :position))
-                          (cdr (plist-get geometry :position)))
-      (when (plist-get geometry :fullscreen)
-        (set-frame-parameter frame 'fullscreen
-                             (plist-get geometry :fullscreen))))))
+(defun my/save-frame-geometry (&optional frame)
+  "Write FRAME's position, size and fullscreen state.
+FRAME defaults to the selected frame, or any other GUI frame if that one
+isn't (under the daemon the selected frame at quit can be the hidden one)."
+  (when-let* ((frame (seq-find #'my/frame-geometry-frame-p
+                               (cons (or frame (selected-frame))
+                                     (unless frame (frame-list))))))
+    (with-temp-file my/frame-geometry-file
+      (prin1 (list :position (frame-position frame)
+                   :width (frame-text-width frame)
+                   :height (frame-text-height frame)
+                   :fullscreen (frame-parameter frame 'fullscreen))
+             (current-buffer)))))
 
+(defun my/restore-frame-geometry (&optional frame)
+  "Apply the geometry saved by `my/save-frame-geometry' to FRAME, if any.
+FRAME defaults to the selected frame."
+  (let ((frame (or frame (selected-frame))))
+    (when (and (my/frame-geometry-frame-p frame)
+               (file-readable-p my/frame-geometry-file))
+      (let ((geometry (with-temp-buffer
+                        (insert-file-contents my/frame-geometry-file)
+                        (read (current-buffer)))))
+        (set-frame-size frame (plist-get geometry :width)
+                        (plist-get geometry :height) t)
+        (set-frame-position frame
+                            (car (plist-get geometry :position))
+                            (cdr (plist-get geometry :position)))
+        (when (plist-get geometry :fullscreen)
+          (set-frame-parameter frame 'fullscreen
+                               (plist-get geometry :fullscreen)))))))
+
+;; Save: when Emacs quits, and when any frame closes (with the daemon, closing
+;; a frame is how you "quit").
 (add-hook 'kill-emacs-hook #'my/save-frame-geometry)
+(add-hook 'delete-frame-functions #'my/save-frame-geometry)
+;; Restore: the first frame of a normal launch, and every emacsclient frame.
 (add-hook 'window-setup-hook #'my/restore-frame-geometry)
+(add-hook 'server-after-make-frame-hook #'my/restore-frame-geometry)
 
 ;; If you use `org' and don't want your org files in the default location below,
 ;; change `org-directory'. It must be set before org loads!
