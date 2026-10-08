@@ -45,6 +45,40 @@
 ;; numbers are disabled. For relative line numbers, set this to `relative'.
 (setq display-line-numbers-type 'relative)
 
+;; Reopen the GUI frame where it was last closed, at the same size (or
+;; maximized/fullscreen if it was). Saved on quit to Doom's cache dir.
+(defvar my/frame-geometry-file (concat doom-cache-dir "frame-geometry.el"))
+
+(defun my/save-frame-geometry ()
+  "Write the selected frame's position, size and fullscreen state."
+  (when (display-graphic-p)
+    (let ((frame (selected-frame)))
+      (with-temp-file my/frame-geometry-file
+        (prin1 (list :position (frame-position frame)
+                     :width (frame-text-width frame)
+                     :height (frame-text-height frame)
+                     :fullscreen (frame-parameter frame 'fullscreen))
+               (current-buffer))))))
+
+(defun my/restore-frame-geometry ()
+  "Apply the geometry saved by `my/save-frame-geometry', if any."
+  (when (and (display-graphic-p) (file-readable-p my/frame-geometry-file))
+    (let ((geometry (with-temp-buffer
+                      (insert-file-contents my/frame-geometry-file)
+                      (read (current-buffer))))
+          (frame (selected-frame)))
+      (set-frame-size frame (plist-get geometry :width)
+                      (plist-get geometry :height) t)
+      (set-frame-position frame
+                          (car (plist-get geometry :position))
+                          (cdr (plist-get geometry :position)))
+      (when (plist-get geometry :fullscreen)
+        (set-frame-parameter frame 'fullscreen
+                             (plist-get geometry :fullscreen))))))
+
+(add-hook 'kill-emacs-hook #'my/save-frame-geometry)
+(add-hook 'window-setup-hook #'my/restore-frame-geometry)
+
 ;; If you use `org' and don't want your org files in the default location below,
 ;; change `org-directory'. It must be set before org loads!
 (setq org-directory "~/org/")
