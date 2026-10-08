@@ -61,13 +61,44 @@
             name (format-time-string "%Y-%m-%d %a" date))))
 
 (after! org
-  ;; SPC X b: add a birthday to birthdays.org
-  (add-to-list 'org-capture-templates
-               '("b" "Birthday" entry
-                 (file "birthdays.org")
-                 (function my/org-capture-birthday-template)
-                 :empty-lines-before 1)
-               t))
+  ;; SPC X <key>. Replaces Doom's defaults so captured items look like the
+  ;; rest of todo.org (TODO headings, not [ ] checkboxes).
+  (setq org-capture-templates
+        '(;; Quick task into Inbox; refile it later with SPC m r r
+          ("t" "Task" entry
+           (file+headline "todo.org" "Inbox")
+           "* TODO %?\n:PROPERTIES:\n:CREATED: %U\n:END:"
+           :empty-lines 1)
+          ;; Same, plus a link back to the file/heading you were in
+          ("T" "Task with link" entry
+           (file+headline "todo.org" "Inbox")
+           "* TODO %?\n:PROPERTIES:\n:CREATED: %U\n:END:\n%a"
+           :empty-lines 1)
+          ;; Scheduled work task, filed directly
+          ("w" "Work task" entry
+           (file+olp "todo.org" "Work" "Tasks")
+           "* TODO %?\nSCHEDULED: %^t"
+           :empty-lines 1)
+          ;; One-off meeting with a date and time
+          ("m" "Meeting" entry
+           (file+olp "todo.org" "Work" "Meetings")
+           "* %?\n%^T"
+           :empty-lines 1)
+          ;; Trip packing checklist; edit the list in templates/packing.org
+          ("p" "Packing list" entry
+           (file+olp "todo.org" "Personal" "Tasks")
+           (file "templates/packing.org")
+           :empty-lines 1)
+          ;; Birthday into birthdays.org
+          ("b" "Birthday" entry
+           (file "birthdays.org")
+           (function my/org-capture-birthday-template)
+           :empty-lines-before 1)))
+
+  ;; SPC m r r offers only todo.org headings (Inbox, Work/Tasks,
+  ;; Personal/Tasks, ...), not birthdays.org.
+  (setq org-refile-targets
+        `((,(expand-file-name "todo.org" org-directory) :maxlevel . 2))))
 
 (after! org
   ;; SPC m A moves a finished subtree to archive/<file>_archive, filed under a
