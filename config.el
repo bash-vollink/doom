@@ -45,11 +45,15 @@
 ;; numbers are disabled. For relative line numbers, set this to `relative'.
 (setq display-line-numbers-type 'relative)
 
-;; Reopen GUI frames where the last one was closed, at the same size (or
-;; maximized/fullscreen if it was). Works for a normal `emacs' launch and for
-;; frames opened with `emacsclient -c' on the daemon. Saved to Doom's cache dir
-;; whenever a frame closes and when Emacs quits.
+;; Open GUI frames at the size the last one was closed at (or
+;; maximized/fullscreen if it was), centered on the screen the mouse is on.
+;; Works for a normal `emacs' launch and for frames opened with
+;; `emacsclient -c' on the daemon. Saved to Doom's cache dir whenever a frame
+;; closes and when Emacs quits.
 (defvar my/frame-geometry-file (concat doom-cache-dir "frame-geometry.el"))
+
+(defvar my/frame-min-size '(120 . 35)
+  "Smallest size, in columns and lines, a restored frame opens at.")
 
 (defun my/frame-geometry-frame-p (frame)
   "Non-nil if FRAME is a GUI frame whose geometry should be saved/restored.
@@ -59,46 +63,62 @@ Skips transient frames such as Doom's org-capture popup."
        (not (frame-parameter frame 'transient))))
 
 (defun my/save-frame-geometry (&optional frame)
-  "Write FRAME's position, size and fullscreen state.
+  "Write FRAME's size and fullscreen state.
 FRAME defaults to the selected frame, or any other GUI frame if that one
 isn't (under the daemon the selected frame at quit can be the hidden one)."
   (when-let* ((frame (seq-find #'my/frame-geometry-frame-p
                                (cons (or frame (selected-frame))
                                      (unless frame (frame-list))))))
     (with-temp-file my/frame-geometry-file
-      (prin1 (list :position (frame-position frame)
-                   :width (frame-text-width frame)
+      (prin1 (list :width (frame-text-width frame)
                    :height (frame-text-height frame)
                    :fullscreen (frame-parameter frame 'fullscreen))
              (current-buffer)))))
 
-(defvar my/frame-min-size '(120 . 35)
-  "Smallest size, in columns and lines, a restored frame opens at.")
+(defun my/mouse-monitor-workarea (frame)
+  "Return (X Y WIDTH HEIGHT) of the usable area of the screen under the mouse.
+Falls back to FRAME's own screen."
+  (let* ((mouse (mouse-absolute-pixel-position))
+         (monitor
+          (or (seq-find (lambda (monitor)
+                          (pcase-let ((`(,x ,y ,w ,h) (alist-get 'geometry monitor)))
+                            (and (<= x (car mouse) (+ x w -1))
+                                 (<= y (cdr mouse) (+ y h -1)))))
+                        (display-monitor-attributes-list frame))
+              (frame-monitor-attributes frame))))
+    (alist-get 'workarea monitor)))
 
 (defun my/restore-frame-geometry (&optional frame)
-  "Apply the geometry saved by `my/save-frame-geometry' to FRAME, if any.
-FRAME defaults to the selected frame. Either way, FRAME opens at least
-`my/frame-min-size'."
+  "Size FRAME from `my/save-frame-geometry' and center it on the mouse's screen.
+FRAME defaults to the selected frame. It opens at least `my/frame-min-size'
+and at most the size of that screen."
   (let ((frame (or frame (selected-frame))))
     (when (my/frame-geometry-frame-p frame)
-      (let* ((geometry (when (file-readable-p my/frame-geometry-file)
-                         (with-temp-buffer
-                           (insert-file-contents my/frame-geometry-file)
-                           (read (current-buffer)))))
-             (position (plist-get geometry :position))
-             (fullscreen (plist-get geometry :fullscreen)))
-        ;; Pixel sizes; compare against the minimum before resizing, since
-        ;; the frame's reported size can lag behind `set-frame-size'.
-        (set-frame-size
-         frame
-         (max (or (plist-get geometry :width) (frame-text-width frame))
-              (* (car my/frame-min-size) (frame-char-width frame)))
-         (max (or (plist-get geometry :height) (frame-text-height frame))
-              (* (cdr my/frame-min-size) (frame-char-height frame)))
-         t)
-        (when position
-          (set-frame-position frame (car position) (cdr position)))
-        (when fullscreen
+      (pcase-let* ((geometry (when (file-readable-p my/frame-geometry-file)
+                               (with-temp-buffer
+                                 (insert-file-contents my/frame-geometry-file)
+                                 (read (current-buffer)))))
+                   (`(,x ,y ,screen-w ,screen-h) (my/mouse-monitor-workarea frame))
+                   ;; Window border and title bar, so the frame fits on screen.
+                   (extra-w (- (frame-outer-width frame) (frame-text-width frame)))
+                   (extra-h (- (frame-outer-height frame) (frame-text-height frame)))
+                   ;; Pixel sizes, worked out before resizing, since the
+                   ;; frame's reported size can lag behind `set-frame-size'.
+                   (width (min (max (or (plist-get geometry :width)
+                                        (frame-text-width frame))
+                                    (* (car my/frame-min-size)
+                                       (frame-char-width frame)))
+                               (- screen-w extra-w)))
+                   (height (min (max (or (plist-get geometry :height)
+                                         (frame-text-height frame))
+                                     (* (cdr my/frame-min-size)
+                                        (frame-char-height frame)))
+                                (- screen-h extra-h))))
+        (set-frame-size frame width height t)
+        (set-frame-position frame
+                            (+ x (max 0 (/ (- screen-w width extra-w) 2)))
+                            (+ y (max 0 (/ (- screen-h height extra-h) 2))))
+        (when-let* ((fullscreen (plist-get geometry :fullscreen)))
           (set-frame-parameter frame 'fullscreen fullscreen))))))
 
 ;; Save: when Emacs quits, and when any frame closes (with the daemon, closing
