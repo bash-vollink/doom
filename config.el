@@ -72,23 +72,34 @@ isn't (under the daemon the selected frame at quit can be the hidden one)."
                    :fullscreen (frame-parameter frame 'fullscreen))
              (current-buffer)))))
 
+(defvar my/frame-min-size '(120 . 35)
+  "Smallest size, in columns and lines, a restored frame opens at.")
+
 (defun my/restore-frame-geometry (&optional frame)
   "Apply the geometry saved by `my/save-frame-geometry' to FRAME, if any.
-FRAME defaults to the selected frame."
+FRAME defaults to the selected frame. Either way, FRAME opens at least
+`my/frame-min-size'."
   (let ((frame (or frame (selected-frame))))
-    (when (and (my/frame-geometry-frame-p frame)
-               (file-readable-p my/frame-geometry-file))
-      (let ((geometry (with-temp-buffer
-                        (insert-file-contents my/frame-geometry-file)
-                        (read (current-buffer)))))
-        (set-frame-size frame (plist-get geometry :width)
-                        (plist-get geometry :height) t)
-        (set-frame-position frame
-                            (car (plist-get geometry :position))
-                            (cdr (plist-get geometry :position)))
-        (when (plist-get geometry :fullscreen)
-          (set-frame-parameter frame 'fullscreen
-                               (plist-get geometry :fullscreen)))))))
+    (when (my/frame-geometry-frame-p frame)
+      (let* ((geometry (when (file-readable-p my/frame-geometry-file)
+                         (with-temp-buffer
+                           (insert-file-contents my/frame-geometry-file)
+                           (read (current-buffer)))))
+             (position (plist-get geometry :position))
+             (fullscreen (plist-get geometry :fullscreen)))
+        ;; Pixel sizes; compare against the minimum before resizing, since
+        ;; the frame's reported size can lag behind `set-frame-size'.
+        (set-frame-size
+         frame
+         (max (or (plist-get geometry :width) (frame-text-width frame))
+              (* (car my/frame-min-size) (frame-char-width frame)))
+         (max (or (plist-get geometry :height) (frame-text-height frame))
+              (* (cdr my/frame-min-size) (frame-char-height frame)))
+         t)
+        (when position
+          (set-frame-position frame (car position) (cdr position)))
+        (when fullscreen
+          (set-frame-parameter frame 'fullscreen fullscreen))))))
 
 ;; Save: when Emacs quits, and when any frame closes (with the daemon, closing
 ;; a frame is how you "quit").
