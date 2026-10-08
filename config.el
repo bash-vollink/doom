@@ -145,7 +145,7 @@
 (after! org-agenda
   ;; SPC o A d: one-screen daily review.
   ;; SPC o A e (org-store-agenda-views) also writes it to ~/org/exports/ as
-  ;; HTML and PDF (the PDF needs ps2pdf from Ghostscript: brew install ghostscript).
+  ;; HTML, Org (full entries) and plain text.
   (setq org-agenda-custom-commands
         `(("d" "Daily review"
            ((agenda "" ((org-agenda-span 'day)))
@@ -154,7 +154,8 @@
             (tags-todo "inbox" ((org-agenda-overriding-header "Inbox to refile"))))
            nil
            (,(expand-file-name "exports/daily-review.html" org-directory)
-            ,(expand-file-name "exports/daily-review.pdf" org-directory)))))
+            ,(expand-file-name "exports/daily-review.org" org-directory)
+            ,(expand-file-name "exports/daily-review.txt" org-directory)))))
 
   ;; Create ~/org/exports on first export instead of failing on a missing dir.
   (defadvice! my/org-make-exports-dir-a (&rest _)
