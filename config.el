@@ -69,6 +69,26 @@
                  :empty-lines-before 1)
                t))
 
+(after! org
+  ;; SPC m A moves a finished subtree to archive/<file>_archive, filed under a
+  ;; year/month/day tree, instead of keeping "Completed Tasks" sections.
+  (setq org-archive-location "archive/%s_archive::datetree/")
+
+  ;; Record when things close and why they slip, in a folded LOGBOOK drawer.
+  ;; Rescheduling prompts for a reason.
+  (setq org-log-done 'time
+        org-log-into-drawer t
+        org-log-reschedule 'note)
+
+  ;; NEXT = doing now, WAIT = blocked on someone/something (asks why),
+  ;; CANX = dropped (asks why).
+  (setq org-todo-keywords
+        '((sequence "TODO(t)" "NEXT(n)" "WAIT(w@/!)" "|" "DONE(d)" "CANX(c@)"))
+        org-todo-keyword-faces
+        '(("NEXT" . +org-todo-active)
+          ("WAIT" . +org-todo-onhold)
+          ("CANX" . +org-todo-cancel))))
+
 
 ;; Whenever you reconfigure a package, make sure to wrap your config in an
 ;; `with-eval-after-load' block, otherwise Doom's defaults may override your
